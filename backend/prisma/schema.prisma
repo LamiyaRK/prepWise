@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  avatar    String?
+  university String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trackerEntries JobTracker[]
+  bookmarks      Bookmark[]
+  testResults    TestResult[]
+  posts          CommunityPost[]
+  comments       Comment[]
+  jobs           Job[]
+}
+
+model JobTracker {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName String
+  jobTitle    String?
+  jobLink     String?
+  status      Status    @default(APPLIED)
+  stage       Stage?
+  appliedAt   DateTime  @default(now())
+  notes       String?
+  updatedAt   DateTime  @updatedAt
+}
+
+model Job {
+  id          String   @id @default(cuid())
+  title       String
+  company     String
+  location    String
+  category    String
+  type        JobType
+  link        String?
+  description String?
+  postedById  String
+  postedBy    User     @relation(fields: [postedById], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model InterviewQuestion {
+  id         String     @id @default(cuid())
+  category   String
+  question   String
+  answer     String?
+  difficulty Difficulty
+  isAI       Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  bookmarks  Bookmark[]
+}
+
+model Bookmark {
+  id         String            @id @default(cuid())
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId String
+  question   InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  createdAt  DateTime          @default(now())
+
+  @@unique([userId, questionId])
+}
+
+model MockTest {
+  id        String         @id @default(cuid())
+  title     String
+  category  String
+  duration  Int
+  questions TestQuestion[]
+  results   TestResult[]
+  createdAt DateTime       @default(now())
+}
+
+model TestQuestion {
+  id       String   @id @default(cuid())
+  testId   String
+  test     MockTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  question String
+  options  String[]
+  answer   String
+}
+
+model TestResult {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testId      String
+  test        MockTest @relation(fields: [testId], references: [id])
+  score       Int
+  total       Int
+  completedAt DateTime @default(now())
+}
+
+model CommunityPost {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   String
+  role      String
+  content   String
+  tags      String[]
+  likes     String[]
+  comments  Comment[]
+  createdAt DateTime  @default(now())
+}
+
+model Comment {
+  id        String        @id @default(cuid())
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  content   String
+  createdAt DateTime      @default(now())
+}
+
+enum Status {
+  APPLIED
+  IN_REVIEW
+  INTERVIEW
+  OFFER
+  REJECTED
+}
+
+enum Stage {
+  RESUME
+  PHONE_SCREEN
+  TECHNICAL
+  HR
+  FINAL
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  INTERNSHIP
+  REMOTE
+}

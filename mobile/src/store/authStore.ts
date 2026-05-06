@@ -1,0 +1,63 @@
+import { create } from 'zustand'
+import * as SecureStore from 'expo-secure-store'
+import api from '../services/api'
+
+interface User {
+  id: string
+  name: string
+  email: string
+}
+
+interface AuthState {
+  user: User | null
+  token: string | null
+  isLoading: boolean
+  login: (email: string, password: string) => Promise<void>
+  register: (name: string, email: string, password: string, university?: string) => Promise<void>
+  logout: () => Promise<void>
+  loadToken: () => Promise<void>
+}
+
+export const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  token: null,
+  isLoading: false,
+
+  loadToken: async () => {
+    const token = await SecureStore.getItemAsync('token')
+    const userStr = await SecureStore.getItemAsync('user')
+    if (token && userStr) {
+      set({ token, user: JSON.parse(userStr) })
+    }
+  },
+
+  login: async (email, password) => {
+    set({ isLoading: true })
+    try {
+      const res = await api.post('/auth/login', { email, password })
+      await SecureStore.setItemAsync('token', res.data.token)
+      await SecureStore.setItemAsync('user', JSON.stringify(res.data.user))
+      set({ token: res.data.token, user: res.data.user })
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  register: async (name, email, password, university) => {
+    set({ isLoading: true })
+    try {
+      const res = await api.post('/auth/register', { name, email, password, university })
+      await SecureStore.setItemAsync('token', res.data.token)
+      await SecureStore.setItemAsync('user', JSON.stringify(res.data.user))
+      set({ token: res.data.token, user: res.data.user })
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  logout: async () => {
+    await SecureStore.deleteItemAsync('token')
+    await SecureStore.deleteItemAsync('user')
+    set({ user: null, token: null })
+  }
+}))

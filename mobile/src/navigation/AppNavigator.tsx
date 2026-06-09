@@ -2,6 +2,11 @@ import React from 'react'
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs'
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
 import { Colors, Fonts } from '../constants/theme'
+import { TrackerScreen } from '../features/tracker/screens/TrackerScreen'
+import { InterviewScreen } from '../features/interview/screens/InterviewScreen'
+import { CommunityScreen } from '../features/community/screens/CommunityScreen'
+import { JobsScreen } from '../features/jobs/screens/JobsScreen'
+import { HomeScreen } from '../features/home/screens/HomeScreen'
 
 const Placeholder = (label: string) => () => (
   <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
@@ -25,11 +30,11 @@ export const AppNavigator = () => {
           tabBarItemStyle: { width: 80 },
         }}
       >
-        <Tab.Screen name="Home" component={Placeholder('Home')} />
-        <Tab.Screen name="Jobs" component={Placeholder('Jobs')} />
-        <Tab.Screen name="Tracker" component={Placeholder('Tracker')} />
-        <Tab.Screen name="Interview" component={Placeholder('Interview')} />
-        <Tab.Screen name="Community" component={Placeholder('Community')} />
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Jobs" component={JobsScreen} />
+       <Tab.Screen name="Tracker" component={TrackerScreen} />
+        <Tab.Screen name="Interview" component={InterviewScreen} />
+        <Tab.Screen name="Community" component={CommunityScreen} />
       </Tab.Navigator>
     </SafeAreaView>
   )

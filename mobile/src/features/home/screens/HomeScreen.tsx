@@ -54,13 +54,14 @@ export const HomeScreen = ({ navigation }: any) => {
     return 'Good Evening'
   }
 
-  const quickActions: QuickActionProps[] = [
-    { icon: '💼', label: 'Browse Jobs',  color: Colors.primary,   onPress: () => navigation.navigate('Jobs') },
-    { icon: '📊', label: 'Tracker',      color: Colors.secondary, onPress: () => navigation.navigate('Tracker') },
+ const quickActions: QuickActionProps[] = [
+    { icon: '💼', label: 'Browse Jobs',  color: Colors.primary,   onPress: () => navigation.navigate('Jobs')      },
+    { icon: '📊', label: 'Tracker',      color: Colors.secondary, onPress: () => navigation.navigate('Tracker')   },
     { icon: '🧠', label: 'Interview',    color: Colors.success,   onPress: () => navigation.navigate('Interview') },
     { icon: '📝', label: 'Mock Test',    color: Colors.warning,   onPress: () => navigation.navigate('MockTests') },
     { icon: '👥', label: 'Community',    color: Colors.accent,    onPress: () => navigation.navigate('Community') },
-    { icon: '⚙️', label: 'Settings',     color: Colors.primary,   onPress: () => {} },
+    { icon: '🎙️', label: 'AI Practice',  color: Colors.secondary, onPress: () => navigation.navigate('AI')        },
+    { icon: '📄', label: 'CV Helper',    color: Colors.primary,   onPress: () => navigation.navigate('CV')        },
   ]
 
   const stats: StatCardProps[] = [

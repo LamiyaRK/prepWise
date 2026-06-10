@@ -1,0 +1,368 @@
+import React, { useState } from 'react'
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  SafeAreaView, ActivityIndicator, Alert, Modal,
+} from 'react-native'
+import * as DocumentPicker from 'expo-document-picker'
+import { LinearGradient } from 'expo-linear-gradient'
+import { Colors, Fonts, Radius, Spacing } from '../../../constants/theme'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface CVFile {
+  name: string
+  uri:  string
+  size: number
+}
+
+interface AIFeedback {
+  score:       number
+  summary:     string
+  strengths:   string[]
+  improvements: string[]
+  keywords:    string[]
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const formatSize = (bytes: number) => {
+  if (bytes < 1024)       return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// Simulated AI feedback (replace with real API call when backend is ready)
+const mockAnalyzeCV = async (): Promise<AIFeedback> => {
+  await new Promise(r => setTimeout(r, 2500))
+  return {
+    score: 72,
+    summary: 'Your CV is well-structured with clear sections, but could benefit from stronger action verbs, quantified achievements, and more relevant keywords for tech roles.',
+    strengths: [
+      'Clear and readable layout',
+      'Good education section with relevant coursework',
+      'Projects section demonstrates practical skills',
+    ],
+    improvements: [
+      'Add quantified achievements (e.g. "Reduced load time by 40%")',
+      'Include more industry-relevant keywords like REST API, CI/CD, Agile',
+      'Shorten objective statement to 2 lines max',
+      'Add links to GitHub, LinkedIn, and portfolio',
+    ],
+    keywords: ['React Native', 'Node.js', 'PostgreSQL', 'REST API', 'TypeScript'],
+  }
+}
+
+// ─── Score Ring ───────────────────────────────────────────────────────────────
+
+const ScoreRing = ({ score }: { score: number }) => {
+  const color = score >= 80 ? Colors.success : score >= 60 ? Colors.warning : Colors.accent
+  return (
+    <View style={[scoreStyles.ring, { borderColor: color }]}>
+      <Text style={[scoreStyles.score, { color }]}>{score}</Text>
+      <Text style={scoreStyles.label}>/ 100</Text>
+    </View>
+  )
+}
+const scoreStyles = StyleSheet.create({
+  ring: {
+    width: 90, height: 90, borderRadius: 45,
+    borderWidth: 4, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.surface,
+  },
+  score: { fontSize: 26, fontFamily: Fonts.soraBold },
+  label: { fontSize: 11, color: Colors.textMuted, fontFamily: Fonts.dmSansRegular },
+})
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export const CvScreen = () => {
+  const [cvFile,    setCvFile]    = useState<CVFile | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [feedback,  setFeedback]  = useState<AIFeedback | null>(null)
+  const [showModal, setShowModal] = useState(false)
+
+  const pickCV = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'application/msword',
+               'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        copyToCacheDirectory: true,
+      })
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0]
+        setCvFile({ name: asset.name, uri: asset.uri, size: asset.size ?? 0 })
+        setFeedback(null)
+      }
+    } catch {
+      Alert.alert('Error', 'Could not pick file. Please try again.')
+    }
+  }
+
+  const analyzeCV = async () => {
+    if (!cvFile) return
+    setAnalyzing(true)
+    try {
+      const result = await mockAnalyzeCV()
+      setFeedback(result)
+      setShowModal(true)
+    } catch {
+      Alert.alert('Error', 'Analysis failed. Please try again.')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>CV Optimizer</Text>
+          <Text style={styles.subtitle}>Upload your resume for AI-powered feedback</Text>
+        </View>
+
+        {/* Upload area */}
+        <TouchableOpacity onPress={pickCV} activeOpacity={0.8}>
+          <LinearGradient
+            colors={cvFile ? [Colors.primary + '22', Colors.secondary + '11'] : [Colors.surface, Colors.surface]}
+            style={[styles.uploadArea, cvFile && styles.uploadAreaFilled]}
+          >
+            {cvFile ? (
+              <View style={styles.fileInfo}>
+                <Text style={styles.fileIcon}>📄</Text>
+                <View style={styles.fileMeta}>
+                  <Text style={styles.fileName} numberOfLines={1}>{cvFile.name}</Text>
+                  <Text style={styles.fileSize}>{formatSize(cvFile.size)}</Text>
+                </View>
+                <TouchableOpacity onPress={() => { setCvFile(null); setFeedback(null) }}>
+                  <Text style={styles.removeFile}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.uploadPlaceholder}>
+                <Text style={styles.uploadIcon}>📎</Text>
+                <Text style={styles.uploadTitle}>Tap to upload your CV</Text>
+                <Text style={styles.uploadHint}>Supports PDF and Word (.docx)</Text>
+              </View>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Analyze button */}
+        {cvFile && !analyzing && (
+          <TouchableOpacity onPress={analyzeCV} activeOpacity={0.85} style={styles.analyzeWrap}>
+            <LinearGradient
+              colors={['#6C63FF', '#00D4FF']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={styles.analyzeBtn}
+            >
+              <Text style={styles.analyzeBtnText}>🤖  Analyze with AI</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {analyzing && (
+          <View style={styles.analyzingBox}>
+            <ActivityIndicator color={Colors.primary} size="large" />
+            <Text style={styles.analyzingText}>AI is reading your CV…</Text>
+          </View>
+        )}
+
+        {/* Previous feedback summary */}
+        {feedback && (
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryTop}>
+              <ScoreRing score={feedback.score} />
+              <View style={styles.summaryInfo}>
+                <Text style={styles.summaryTitle}>CV Score</Text>
+                <Text style={styles.summaryDesc}>{feedback.summary}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.viewFullBtn}
+              onPress={() => setShowModal(true)}
+            >
+              <Text style={styles.viewFullText}>View Full Report →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Tips section */}
+        <Text style={styles.sectionTitle}>📝 CV Best Practices</Text>
+        {[
+          { icon: '✅', tip: 'Keep your CV to 1–2 pages maximum.' },
+          { icon: '📊', tip: 'Quantify achievements wherever possible.' },
+          { icon: '🔑', tip: 'Mirror keywords from the job description.' },
+          { icon: '🎯', tip: 'Tailor your CV for every application.' },
+          { icon: '🔗', tip: 'Include links to GitHub and LinkedIn.' },
+        ].map(({ icon, tip }) => (
+          <View key={tip} style={styles.tipRow}>
+            <Text style={styles.tipIcon}>{icon}</Text>
+            <Text style={styles.tipText}>{tip}</Text>
+          </View>
+        ))}
+
+        {/* Template section */}
+        <Text style={styles.sectionTitle}>📋 Resume Templates</Text>
+        <View style={styles.templatesGrid}>
+          {['Modern', 'Classic', 'Tech', 'Minimal'].map(name => (
+            <TouchableOpacity key={name} style={styles.templateCard} activeOpacity={0.75}>
+              <LinearGradient
+                colors={[Colors.primary + '22', Colors.secondary + '11']}
+                style={styles.templatePreview}
+              >
+                <Text style={styles.templateIcon}>📄</Text>
+              </LinearGradient>
+              <Text style={styles.templateName}>{name}</Text>
+              <Text style={styles.templateBtn}>Use →</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+      </ScrollView>
+
+      {/* Full feedback modal */}
+      <Modal
+        visible={showModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowModal(false)}
+      >
+        {feedback && (
+          <View style={styles.modal}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>AI Feedback Report</Text>
+              <TouchableOpacity onPress={() => setShowModal(false)} style={styles.closeBtn}>
+                <Text style={styles.closeText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
+              {/* Score */}
+              <View style={styles.scoreRow}>
+                <ScoreRing score={feedback.score} />
+                <Text style={styles.scoreSummary}>{feedback.summary}</Text>
+              </View>
+
+              {/* Strengths */}
+              <Text style={styles.feedbackSection}>💪 Strengths</Text>
+              {feedback.strengths.map(s => (
+                <View key={s} style={styles.feedbackItem}>
+                  <Text style={[styles.feedbackDot, { color: Colors.success }]}>●</Text>
+                  <Text style={styles.feedbackText}>{s}</Text>
+                </View>
+              ))}
+
+              {/* Improvements */}
+              <Text style={styles.feedbackSection}>🔧 Improvements</Text>
+              {feedback.improvements.map(i => (
+                <View key={i} style={styles.feedbackItem}>
+                  <Text style={[styles.feedbackDot, { color: Colors.warning }]}>●</Text>
+                  <Text style={styles.feedbackText}>{i}</Text>
+                </View>
+              ))}
+
+              {/* Suggested keywords */}
+              <Text style={styles.feedbackSection}>🔑 Add These Keywords</Text>
+              <View style={styles.keywordsRow}>
+                {feedback.keywords.map(k => (
+                  <View key={k} style={styles.keyword}>
+                    <Text style={styles.keywordText}>{k}</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        )}
+      </Modal>
+    </SafeAreaView>
+  )
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  safe:    { flex: 1, backgroundColor: Colors.background },
+  content: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+
+  header:   { marginBottom: Spacing.lg },
+  title:    { fontSize: 24, color: Colors.textPrimary, fontFamily: Fonts.soraBold },
+  subtitle: { fontSize: 13, color: Colors.textSecondary, fontFamily: Fonts.dmSansRegular, marginTop: 2 },
+
+  // Upload
+  uploadArea: {
+    borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border,
+    borderStyle: 'dashed', padding: Spacing.xl, marginBottom: Spacing.md,
+  },
+  uploadAreaFilled: { borderStyle: 'solid', borderColor: Colors.primary },
+  uploadPlaceholder: { alignItems: 'center', gap: 8 },
+  uploadIcon:  { fontSize: 36 },
+  uploadTitle: { fontSize: 15, color: Colors.textPrimary, fontFamily: Fonts.soraSemiBold },
+  uploadHint:  { fontSize: 12, color: Colors.textMuted, fontFamily: Fonts.dmSansRegular },
+  fileInfo:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  fileIcon:    { fontSize: 32 },
+  fileMeta:    { flex: 1 },
+  fileName:    { fontSize: 14, color: Colors.textPrimary, fontFamily: Fonts.dmSansBold },
+  fileSize:    { fontSize: 11, color: Colors.textMuted, fontFamily: Fonts.dmSansRegular, marginTop: 2 },
+  removeFile:  { color: Colors.accent, fontSize: 18, padding: 4 },
+
+  // Analyze
+  analyzeWrap: { borderRadius: Radius.md, overflow: 'hidden', marginBottom: Spacing.lg },
+  analyzeBtn:  { height: 52, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.md },
+  analyzeBtnText: { color: '#fff', fontFamily: Fonts.soraSemiBold, fontSize: 16 },
+  analyzingBox: { alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xl },
+  analyzingText:{ fontSize: 14, color: Colors.textSecondary, fontFamily: Fonts.dmSansRegular },
+
+  // Summary
+  summaryCard: {
+    backgroundColor: Colors.surface, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.primary + '44', padding: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  summaryTop:  { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md },
+  summaryInfo: { flex: 1 },
+  summaryTitle:{ fontSize: 16, color: Colors.textPrimary, fontFamily: Fonts.soraBold, marginBottom: 4 },
+  summaryDesc: { fontSize: 12, color: Colors.textSecondary, fontFamily: Fonts.dmSansRegular, lineHeight: 18 },
+  viewFullBtn: { backgroundColor: Colors.primaryLight, borderRadius: Radius.md, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.primary + '44' },
+  viewFullText:{ color: Colors.primary, fontFamily: Fonts.dmSansBold, fontSize: 13 },
+
+  // Tips
+  sectionTitle: { fontSize: 16, color: Colors.textPrimary, fontFamily: Fonts.soraSemiBold, marginBottom: Spacing.md, marginTop: Spacing.sm },
+  tipRow:    { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: Spacing.sm },
+  tipIcon:   { fontSize: 16, width: 24 },
+  tipText:   { flex: 1, fontSize: 13, color: Colors.textSecondary, fontFamily: Fonts.dmSansRegular, lineHeight: 20 },
+
+  // Templates
+  templatesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
+  templateCard: {
+    width: '47%', backgroundColor: Colors.surface, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, alignItems: 'center', gap: 6,
+  },
+  templatePreview: { width: '100%', height: 80, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  templateIcon:  { fontSize: 28 },
+  templateName:  { fontSize: 13, color: Colors.textPrimary, fontFamily: Fonts.soraSemiBold },
+  templateBtn:   { fontSize: 12, color: Colors.primary, fontFamily: Fonts.dmSansBold },
+
+  // Modal
+  modal:       { flex: 1, backgroundColor: Colors.background },
+  modalHandle: { width: 40, height: 4, backgroundColor: Colors.border, borderRadius: 2, alignSelf: 'center', marginTop: 12 },
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    padding: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  modalTitle:  { fontSize: 18, color: Colors.textPrimary, fontFamily: Fonts.soraBold },
+  closeBtn:    { width: 32, height: 32, borderRadius: Radius.full, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  closeText:   { color: Colors.textSecondary, fontSize: 14 },
+  modalContent:{ padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  scoreRow:    { flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.lg, alignItems: 'flex-start' },
+  scoreSummary:{ flex: 1, fontSize: 13, color: Colors.textSecondary, fontFamily: Fonts.dmSansRegular, lineHeight: 20 },
+  feedbackSection: { fontSize: 15, color: Colors.textPrimary, fontFamily: Fonts.soraSemiBold, marginBottom: Spacing.sm, marginTop: Spacing.md },
+  feedbackItem:{ flexDirection: 'row', gap: 10, marginBottom: 8, alignItems: 'flex-start' },
+  feedbackDot: { fontSize: 10, marginTop: 5 },
+  feedbackText:{ flex: 1, fontSize: 13, color: Colors.textPrimary, fontFamily: Fonts.dmSansRegular, lineHeight: 20 },
+  keywordsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  keyword:     { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: Colors.primary + '44' },
+  keywordText: { fontSize: 12, color: Colors.primary, fontFamily: Fonts.dmSansBold },
+})

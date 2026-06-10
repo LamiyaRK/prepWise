@@ -1,44 +1,78 @@
 import React from 'react'
-import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs'
 import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
-import { Colors, Fonts } from '../constants/theme'
-import { TrackerScreen } from '../features/tracker/screens/TrackerScreen'
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs'
+import { createStackNavigator }          from '@react-navigation/stack'
+
+// Tab screens
+import { HomeScreen }      from '../features/home/screens/HomeScreen'
+import { JobsScreen }      from '../features/jobs/screens/JobsScreen'
+import { TrackerScreen }   from '../features/tracker/screens/TrackerScreen'
 import { InterviewScreen } from '../features/interview/screens/InterviewScreen'
 import { CommunityScreen } from '../features/community/screens/CommunityScreen'
-import { JobsScreen } from '../features/jobs/screens/JobsScreen'
-import { HomeScreen } from '../features/home/screens/HomeScreen'
 
-const Placeholder = (label: string) => () => (
-  <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
-    <Text style={{ color: Colors.textPrimary, fontSize: 18 }}>{label}</Text>
-  </View>
-)
+// Stack (push) screens
+import { JobDetailScreen } from '../features/jobs/screens/JobDetailScreen'
+import { MockTestsScreen } from '../features/mock-tests/screens/MockTestsScreen'
+import { TakeTestScreen }  from '../features/mock-tests/screens/TakeTestScreen'
+import { AIScreen }        from '../features/ai/screens/AIScreen'
+import { CvScreen }        from '../features/cv/screens/CvScreen'
 
-const Tab = createMaterialTopTabNavigator()
+import { Colors, Fonts } from '../constants/theme'
 
-export const AppNavigator = () => {
+// ─── Navigators ───────────────────────────────────────────────────────────────
+
+const Tab   = createMaterialTopTabNavigator()
+const Stack = createStackNavigator()
+
+// ─── Top tab navigator (your original style, kept exactly) ───────────────────
+
+function MainTabs() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
       <Tab.Navigator
         screenOptions={{
-          tabBarStyle: styles.tabBar,
-          tabBarActiveTintColor: Colors.primary,
+          tabBarStyle:           styles.tabBar,
+          tabBarActiveTintColor:   Colors.primary,
           tabBarInactiveTintColor: Colors.textMuted,
-          tabBarLabelStyle: styles.tabLabel,
-          tabBarIndicatorStyle: styles.indicator,
-          tabBarScrollEnabled: true,
-          tabBarItemStyle: { width: 80 },
+          tabBarLabelStyle:      styles.tabLabel,
+          tabBarIndicatorStyle:  styles.indicator,
+          tabBarScrollEnabled:   true,
+          tabBarItemStyle:       { width: 80 },
         }}
       >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Jobs" component={JobsScreen} />
-       <Tab.Screen name="Tracker" component={TrackerScreen} />
+        <Tab.Screen name="Home"      component={HomeScreen}      />
+        <Tab.Screen name="Jobs"      component={JobsScreen}      />
+        <Tab.Screen name="Tracker"   component={TrackerScreen}   />
         <Tab.Screen name="Interview" component={InterviewScreen} />
         <Tab.Screen name="Community" component={CommunityScreen} />
       </Tab.Navigator>
     </SafeAreaView>
   )
 }
+
+// ─── Root stack — wraps tabs + all push screens ───────────────────────────────
+
+export const AppNavigator = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    {/* Main tabbed interface */}
+    <Stack.Screen name="Main"      component={MainTabs}        />
+
+    {/* Jobs */}
+    <Stack.Screen name="JobDetail" component={JobDetailScreen} />
+
+    {/* Mock tests */}
+    <Stack.Screen name="MockTests" component={MockTestsScreen} />
+    <Stack.Screen name="TakeTest"  component={TakeTestScreen}  />
+
+    {/* AI practice */}
+    <Stack.Screen name="AI"        component={AIScreen}        />
+
+    {/* CV optimizer */}
+    <Stack.Screen name="CV"        component={CvScreen}        />
+  </Stack.Navigator>
+)
+
+// ─── Styles (your original tab styles, unchanged) ────────────────────────────
 
 const styles = StyleSheet.create({
   tabBar: {

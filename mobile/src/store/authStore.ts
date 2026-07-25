@@ -1,11 +1,13 @@
 import { create } from 'zustand'
 import * as SecureStore from 'expo-secure-store'
 import api from '../services/api'
+import { UserRole } from '../services/auth.service'
 
 interface User {
   id: string
   name: string
   email: string
+  role: UserRole
 }
 
 interface AuthState {
@@ -16,9 +18,10 @@ interface AuthState {
   register: (name: string, email: string, password: string, university?: string) => Promise<void>
   logout: () => Promise<void>
   loadToken: () => Promise<void>
+  isAdmin: () => boolean
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   token: null,
   isLoading: false,
@@ -59,5 +62,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     await SecureStore.deleteItemAsync('token')
     await SecureStore.deleteItemAsync('user')
     set({ user: null, token: null })
-  }
+  },
+
+  isAdmin: () => get().user?.role === 'ADMIN',
 }))

@@ -1,11 +1,12 @@
 import api from './api'
 
+// Public shape — the correct answer is never sent to the client before
+// submission. See TestReviewItem for the post-submission shape.
 export interface TestQuestion {
   id: string
   testId: string
   question: string
   options: string[]
-  answer: string
 }
 
 export interface MockTest {
@@ -27,10 +28,20 @@ export interface TestResult {
   test: { title: string; category: string }
 }
 
+export interface TestReviewItem {
+  questionId: string
+  question: string
+  options: string[]
+  correctAnswer: string
+  userAnswer: string | null
+  isCorrect: boolean
+}
+
 export interface SubmitResult {
   score: number
   total: number
   percentage: number
+  review: TestReviewItem[]
 }
 
 export const mockTestsService = {

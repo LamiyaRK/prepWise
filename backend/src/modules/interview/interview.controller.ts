@@ -4,7 +4,7 @@ import {
   getQuestions,
   createQuestion,
   bookmarkQuestion,
-  getBookmarkedQuestions
+  getBookmarkedQuestions,
 } from './interview.service'
 
 export const listQuestions = async (req: Request, res: Response) => {

@@ -6,7 +6,8 @@ import {
   createPost,
   toggleLike,
   addComment,
-  deletePost
+  deletePost,
+  reportPost,
 } from './community.service'
 
 export const listPosts = async (req: Request, res: Response) => {
@@ -62,8 +63,19 @@ export const commentOnPost = async (req: AuthRequest, res: Response) => {
 export const removePost = async (req: AuthRequest, res: Response) => {
   try {
     const id = String(req.params.id)
-    await deletePost(req.userId!, id)
+    await deletePost(req.userId!, req.userRole!, id)
     res.json({ message: 'Post deleted successfully' })
+  } catch (err: any) {
+    res.status(400).json({ error: err.message })
+  }
+}
+
+export const reportPostHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const id = String(req.params.id)
+    const { reason } = req.body
+    const result = await reportPost(req.userId!, id, reason)
+    res.status(201).json(result)
   } catch (err: any) {
     res.status(400).json({ error: err.message })
   }

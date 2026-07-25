@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -8,39 +9,46 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  avatar    String?
-  university String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  trackerEntries JobTracker[]
+  id             String          @id @default(cuid())
+  name           String
+  email          String          @unique
+  password       String
+  role           Role            @default(USER)
+  avatar         String?
+  university     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  // ── Streak tracking ──────────────────────────────────────────────────────
+  currentStreak  Int             @default(0)
+  longestStreak  Int             @default(0)
+  lastActiveDate DateTime?
   bookmarks      Bookmark[]
-  testResults    TestResult[]
-  posts          CommunityPost[]
   comments       Comment[]
+  posts          CommunityPost[]
   jobs           Job[]
+  trackerEntries JobTracker[]
+  testResults    TestResult[]
+  aiInterviews   AiInterviewSession[]
+  reports        PostReport[]
+  resumes        Resume[]
 }
 
 model JobTracker {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyName String
   jobTitle    String?
   jobLink     String?
-  status      Status    @default(APPLIED)
+  status      Status   @default(APPLIED)
   stage       Stage?
-  appliedAt   DateTime  @default(now())
+  appliedAt   DateTime @default(now())
   notes       String?
-  updatedAt   DateTime  @updatedAt
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Job {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   company     String
   location    String
@@ -49,8 +57,12 @@ model Job {
   link        String?
   description String?
   postedById  String
-  postedBy    User     @relation(fields: [postedById], references: [id])
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  postedBy    User      @relation(fields: [postedById], references: [id])
+  // ── Admin verification queue ────────────────────────────────────────────
+  verified    Boolean   @default(false)
+  verifiedAt  DateTime?
+  rejected    Boolean   @default(false)
 }
 
 model InterviewQuestion {
@@ -61,17 +73,16 @@ model InterviewQuestion {
   difficulty Difficulty
   isAI       Boolean    @default(false)
   createdAt  DateTime   @default(now())
-
   bookmarks  Bookmark[]
 }
 
 model Bookmark {
   id         String            @id @default(cuid())
   userId     String
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   questionId String
-  question   InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
   createdAt  DateTime          @default(now())
+  question   InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questionId])
 }
@@ -81,52 +92,116 @@ model MockTest {
   title     String
   category  String
   duration  Int
+  createdAt DateTime       @default(now())
   questions TestQuestion[]
   results   TestResult[]
-  createdAt DateTime       @default(now())
 }
 
 model TestQuestion {
   id       String   @id @default(cuid())
   testId   String
-  test     MockTest @relation(fields: [testId], references: [id], onDelete: Cascade)
   question String
   options  String[]
   answer   String
+  test     MockTest @relation(fields: [testId], references: [id], onDelete: Cascade)
 }
 
 model TestResult {
   id          String   @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   testId      String
-  test        MockTest @relation(fields: [testId], references: [id])
   score       Int
   total       Int
   completedAt DateTime @default(now())
+  test        MockTest @relation(fields: [testId], references: [id])
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CommunityPost {
-  id        String    @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   company   String
   role      String
   content   String
   tags      String[]
   likes     String[]
+  createdAt DateTime     @default(now())
   comments  Comment[]
-  createdAt DateTime  @default(now())
+  reports   PostReport[]
+  // ── Moderation ──────────────────────────────────────────────────────────
+  removed   Boolean      @default(false)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PostReport {
+  id        String        @id @default(cuid())
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason    String?
+  createdAt DateTime      @default(now())
+
+  @@unique([postId, userId])
 }
 
 model Comment {
   id        String        @id @default(cuid())
   postId    String
-  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String
-  user      User          @relation(fields: [userId], references: [id])
   content   String
   createdAt DateTime      @default(now())
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id])
+}
+
+// ── Resume builder ───────────────────────────────────────────────────────
+
+model Resume {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   @default("My Resume")
+  data      Json     // structured resume content — contact, summary, experience[], education[], skills[], projects[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── Phase 2: multi-turn AI mock interview ──────────────────────────────────
+
+model AiInterviewSession {
+  id            String               @id @default(cuid())
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          String
+  category      String
+  status        InterviewStatus      @default(IN_PROGRESS)
+  finalScore    Int?
+  finalFeedback String?
+  strengths     String[]
+  improvements  String[]
+  createdAt     DateTime             @default(now())
+  completedAt   DateTime?
+  messages      AiInterviewMessage[]
+}
+
+model AiInterviewMessage {
+  id        String             @id @default(cuid())
+  sessionId String
+  session   AiInterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender    MessageSender
+  content   String
+  createdAt DateTime           @default(now())
+}
+
+enum InterviewStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MessageSender {
+  AI
+  USER
 }
 
 enum Status {
@@ -156,4 +231,9 @@ enum JobType {
   PART_TIME
   INTERNSHIP
   REMOTE
+}
+
+enum Role {
+  USER
+  ADMIN
 }

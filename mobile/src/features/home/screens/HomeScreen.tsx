@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   View,
   Text,
@@ -7,8 +7,11 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from 'react-native'
+import { useFocusEffect } from '@react-navigation/native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuthStore } from '../../../store/authStore'
+import { streakService, Streak } from '../../../services/streak.service'
+import { trackerService, TrackerEntry } from '../../../services/tracker.service'
 import { Colors, Fonts, Spacing, Radius } from '../../../constants/theme'
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -42,10 +45,30 @@ const StatCard = ({ label, value, color }: StatCardProps) => (
   </View>
 )
 
+const StreakBadge = ({ streak }: { streak: Streak | null }) => {
+  if (!streak || streak.currentStreak === 0) return null
+  return (
+    <View style={styles.streakBadge}>
+      <Text style={styles.streakEmoji}>🔥</Text>
+      <Text style={styles.streakValue}>{streak.currentStreak}</Text>
+      <Text style={styles.streakLabel}>day{streak.currentStreak !== 1 ? 's' : ''}</Text>
+    </View>
+  )
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export const HomeScreen = ({ navigation }: any) => {
-  const { user, logout } = useAuthStore()
+  const { user, logout, isAdmin } = useAuthStore()
+  const [streak, setStreak] = useState<Streak | null>(null)
+  const [entries, setEntries] = useState<TrackerEntry[]>([])
+
+  useFocusEffect(
+    useCallback(() => {
+      streakService.get().then(res => setStreak(res.data)).catch(() => {})
+      trackerService.getAll().then(res => setEntries(res.data)).catch(() => {})
+    }, [])
+  )
 
   const greeting = () => {
     const h = new Date().getHours()
@@ -55,19 +78,22 @@ export const HomeScreen = ({ navigation }: any) => {
   }
 
  const quickActions: QuickActionProps[] = [
-    { icon: '💼', label: 'Browse Jobs',  color: Colors.primary,   onPress: () => navigation.navigate('Jobs')      },
-    { icon: '📊', label: 'Tracker',      color: Colors.secondary, onPress: () => navigation.navigate('Tracker')   },
-    { icon: '🧠', label: 'Interview',    color: Colors.success,   onPress: () => navigation.navigate('Interview') },
-    { icon: '📝', label: 'Mock Test',    color: Colors.warning,   onPress: () => navigation.navigate('MockTests') },
-    { icon: '👥', label: 'Community',    color: Colors.accent,    onPress: () => navigation.navigate('Community') },
-    { icon: '🎙️', label: 'AI Practice',  color: Colors.secondary, onPress: () => navigation.navigate('AI')        },
-    { icon: '📄', label: 'CV Helper',    color: Colors.primary,   onPress: () => navigation.navigate('CV')        },
+    { icon: '💼', label: 'Browse Jobs',   color: Colors.primary,   onPress: () => navigation.navigate('Jobs')        },
+    { icon: '📊', label: 'Tracker',       color: Colors.secondary, onPress: () => navigation.navigate('Tracker')     },
+    { icon: '🧠', label: 'Interview',     color: Colors.success,   onPress: () => navigation.navigate('Interview')   },
+    { icon: '📝', label: 'Mock Test',     color: Colors.warning,   onPress: () => navigation.navigate('MockTests')   },
+    { icon: '👥', label: 'Community',     color: Colors.accent,    onPress: () => navigation.navigate('Community')   },
+    { icon: '🎤', label: 'Mock Interview',color: Colors.secondary, onPress: () => navigation.navigate('AIInterview') },
+    { icon: '🎙️', label: 'AI Practice',   color: Colors.secondary, onPress: () => navigation.navigate('AI')          },
+    { icon: '📄', label: 'CV Helper',     color: Colors.primary,   onPress: () => navigation.navigate('CV')          },
+    { icon: '🧾', label: 'Resume Builder',color: Colors.success,   onPress: () => navigation.navigate('ResumeList')  },
+    ...(isAdmin() ? [{ icon: '🛡️', label: 'Admin Panel', color: Colors.warning, onPress: () => navigation.navigate('AdminDashboard') }] : []),
   ]
 
   const stats: StatCardProps[] = [
-    { label: 'Applied',    value: '0', color: Colors.primary   },
-    { label: 'Interviews', value: '0', color: Colors.success   },
-    { label: 'Offers',     value: '0', color: Colors.warning   },
+    { label: 'Applied',    value: String(entries.length), color: Colors.primary },
+    { label: 'Interviews', value: String(entries.filter(e => e.status === 'INTERVIEW').length), color: Colors.success },
+    { label: 'Offers',     value: String(entries.filter(e => e.status === 'OFFER').length), color: Colors.warning },
   ]
 
   const tips = [
@@ -90,13 +116,16 @@ export const HomeScreen = ({ navigation }: any) => {
             <Text style={styles.greeting}>{greeting()} 👋</Text>
             <Text style={styles.userName}>{user?.name ?? 'Job Seeker'}</Text>
           </View>
-          <TouchableOpacity onPress={logout} activeOpacity={0.8}>
-            <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {(user?.name ?? 'U').charAt(0).toUpperCase()}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <StreakBadge streak={streak} />
+            <TouchableOpacity onPress={logout} activeOpacity={0.8}>
+              <LinearGradient colors={[Colors.primary, Colors.secondary]} style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {(user?.name ?? 'U').charAt(0).toUpperCase()}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── Hero Banner ── */}
@@ -161,6 +190,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.lg,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   greeting: {
     fontSize: 13,
     color: Colors.textSecondary,
@@ -180,6 +214,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: { color: '#fff', fontFamily: Fonts.soraBold, fontSize: 18 },
+
+  // Streak badge
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.warningLight,
+    borderWidth: 1,
+    borderColor: Colors.warning + '55',
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  streakEmoji: { fontSize: 13 },
+  streakValue: { fontSize: 13, color: Colors.warning, fontFamily: Fonts.soraBold },
+  streakLabel: { fontSize: 11, color: Colors.warning, fontFamily: Fonts.dmSansMedium },
 
   // Banner
   banner: {

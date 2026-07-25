@@ -5,24 +5,27 @@ export const getQuestions = async (filters: any) => {
   return prisma.interviewQuestion.findMany({
     where: {
       ...(category && { category }),
-      ...(difficulty && { difficulty })
+      ...(difficulty && { difficulty }),
     },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
   })
 }
 
 export const createQuestion = async (data: any) => {
-  return prisma.interviewQuestion.create({ data })
+  const { category, question, answer, difficulty, isAI } = data
+  return prisma.interviewQuestion.create({
+    data: { category, question, answer, difficulty, isAI: !!isAI },
+  })
 }
 
 export const bookmarkQuestion = async (userId: string, questionId: string) => {
   const existing = await prisma.bookmark.findUnique({
-    where: { userId_questionId: { userId, questionId } }
+    where: { userId_questionId: { userId, questionId } },
   })
 
   if (existing) {
     await prisma.bookmark.delete({
-      where: { userId_questionId: { userId, questionId } }
+      where: { userId_questionId: { userId, questionId } },
     })
     return { bookmarked: false }
   }
@@ -35,7 +38,7 @@ export const getBookmarkedQuestions = async (userId: string) => {
   const bookmarks = await prisma.bookmark.findMany({
     where: { userId },
     include: { question: true },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
   })
   return bookmarks.map(b => b.question)
 }

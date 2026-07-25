@@ -11,11 +11,16 @@ import { InterviewScreen } from '../features/interview/screens/InterviewScreen'
 import { CommunityScreen } from '../features/community/screens/CommunityScreen'
 
 // Stack (push) screens
-import { JobDetailScreen } from '../features/jobs/screens/JobDetailScreen'
-import { MockTestsScreen } from '../features/mock-tests/screens/MockTestsScreen'
-import { TakeTestScreen }  from '../features/mock-tests/screens/TakeTestScreen'
-import { AIScreen }        from '../features/ai/screens/AIScreen'
-import { CvScreen }        from '../features/cv/screens/CvScreen'
+import { JobDetailScreen }   from '../features/jobs/screens/JobDetailScreen'
+import { MockTestsScreen }   from '../features/mock-tests/screens/MockTestsScreen'
+import { TakeTestScreen }    from '../features/mock-tests/screens/TakeTestScreen'
+import { AIScreen }          from '../features/ai/screens/AIScreen'
+import { AIInterviewScreen } from '../features/ai-interview/screens/AIInterviewScreen'
+import { AdminDashboardScreen } from '../features/admin/screens/AdminDashboardScreen'
+import { CompanyDetailScreen } from '../features/community/screens/CompanyDetailScreen'
+import { ResumeListScreen } from '../features/resume-builder/screens/ResumeListScreen'
+import { ResumeBuilderScreen } from '../features/resume-builder/screens/ResumeBuilderScreen'
+import { CvScreen }          from '../features/cv/screens/CvScreen'
 
 import { Colors, Fonts } from '../constants/theme'
 
@@ -64,11 +69,23 @@ export const AppNavigator = () => (
     <Stack.Screen name="MockTests" component={MockTestsScreen} />
     <Stack.Screen name="TakeTest"  component={TakeTestScreen}  />
 
-    {/* AI practice */}
-    <Stack.Screen name="AI"        component={AIScreen}        />
+    {/* AI practice — question generator / voice practice */}
+    <Stack.Screen name="AI"          component={AIScreen}          />
+    {/* AI practice — multi-turn mock interview with follow-ups */}
+    <Stack.Screen name="AIInterview" component={AIInterviewScreen} />
 
     {/* CV optimizer */}
     <Stack.Screen name="CV"        component={CvScreen}        />
+
+    {/* Admin only — hidden entry point, gated in HomeScreen by role */}
+    <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+
+    {/* Community — company-aggregated interview insights */}
+    <Stack.Screen name="CompanyDetail" component={CompanyDetailScreen} />
+
+    {/* Resume builder */}
+    <Stack.Screen name="ResumeList" component={ResumeListScreen} />
+    <Stack.Screen name="ResumeBuilder" component={ResumeBuilderScreen} />
   </Stack.Navigator>
 )
 

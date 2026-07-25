@@ -1,18 +1,31 @@
 import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL
-    }
-  }
-})
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined
+  // eslint-disable-next-line no-var
+  var __prismaKeepAlive: ReturnType<typeof setInterval> | undefined
+}
 
-// Keep connection alive during development
+const prisma =
+  global.__prisma ??
+  new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+  })
+
 if (process.env.NODE_ENV !== 'production') {
-  setInterval(async () => {
-    await prisma.$queryRaw`SELECT 1`
-  }, 4 * 60 * 1000) // ping every 4 minutes
+  global.__prisma = prisma
+
+  // Guard against stacking multiple intervals across hot reloads
+  if (!global.__prismaKeepAlive) {
+    global.__prismaKeepAlive = setInterval(async () => {
+      await prisma.$queryRaw`SELECT 1`
+    }, 4 * 60 * 1000)
+  }
 }
 
 export default prisma

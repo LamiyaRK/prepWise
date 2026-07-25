@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   SafeAreaView, ActivityIndicator, RefreshControl, Modal,
-  ScrollView, Alert,
+  ScrollView, Alert, TextInput,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { PostCard } from '../components/PostCard'
@@ -10,6 +10,7 @@ import { useCommunity } from '../../../hooks/useCommunity'
 import { Input } from '../../../components/ui/Input'
 import { Button } from '../../../components/ui/Button'
 import { Colors, Fonts, Radius, Spacing } from '../../../constants/theme'
+import { companyInsightsService, CompanyListItem } from '../../../services/companyInsights.service'
 
 const TAGS = ['DSA', 'System Design', 'Behavioral', 'Offer', 'Rejection', 'Internship', 'Negotiation']
 
@@ -18,6 +19,34 @@ export const CommunityScreen = ({ navigation }: any) => {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ company: '', role: '', content: '', tags: [] as string[] })
   const [submitting, setSubmitting] = useState(false)
+
+  // ── Feed vs Companies toggle ──────────────────────────────────────────
+  const [view, setView] = useState<'feed' | 'companies'>('feed')
+  const [companySearch, setCompanySearch] = useState('')
+  const [companies, setCompanies] = useState<CompanyListItem[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(false)
+
+  const loadCompanies = useCallback(async (search?: string) => {
+    setCompaniesLoading(true)
+    try {
+      const res = await companyInsightsService.list(search)
+      setCompanies(res.data)
+    } catch {
+      // silently fail, show empty state
+    } finally {
+      setCompaniesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (view === 'companies') loadCompanies(companySearch)
+  }, [view])
+
+  useEffect(() => {
+    if (view !== 'companies') return
+    const t = setTimeout(() => loadCompanies(companySearch), 350)
+    return () => clearTimeout(t)
+  }, [companySearch])
 
   const toggleTag = (tag: string) => {
     setForm(prev => ({
@@ -71,7 +100,70 @@ export const CommunityScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
-        {loading ? (
+        {/* Feed / Companies toggle */}
+        <View style={styles.viewToggle}>
+          <TouchableOpacity
+            style={[styles.viewToggleBtn, view === 'feed' && styles.viewToggleBtnActive]}
+            onPress={() => setView('feed')}
+          >
+            <Text style={[styles.viewToggleText, view === 'feed' && styles.viewToggleTextActive]}>📰 Feed</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.viewToggleBtn, view === 'companies' && styles.viewToggleBtnActive]}
+            onPress={() => setView('companies')}
+          >
+            <Text style={[styles.viewToggleText, view === 'companies' && styles.viewToggleTextActive]}>🏢 Companies</Text>
+          </TouchableOpacity>
+        </View>
+
+        {view === 'companies' ? (
+          <>
+            <View style={styles.searchBar}>
+              <Text style={styles.searchIcon}>🔍</Text>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search companies…"
+                placeholderTextColor={Colors.textMuted}
+                value={companySearch}
+                onChangeText={setCompanySearch}
+              />
+            </View>
+
+            {companiesLoading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator color={Colors.primary} size="large" />
+              </View>
+            ) : companies.length === 0 ? (
+              <View style={styles.centered}>
+                <Text style={styles.emptyIcon}>🏢</Text>
+                <Text style={styles.emptyTitle}>No companies yet</Text>
+                <Text style={styles.emptyText}>Interview experiences will show up here once shared.</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={companies}
+                keyExtractor={c => c.company}
+                contentContainerStyle={styles.list}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.companyCard}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.navigate('CompanyDetail', { company: item.company })}
+                  >
+                    <View style={styles.companyAvatar}>
+                      <Text style={styles.companyAvatarText}>{item.company.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.companyName}>{item.company}</Text>
+                      <Text style={styles.companyMeta}>{item.postCount} experience{item.postCount !== 1 ? 's' : ''} shared</Text>
+                    </View>
+                    <Text style={styles.companyArrow}>›</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </>
+        ) : loading ? (
           <View style={styles.centered}>
             <ActivityIndicator color={Colors.primary} size="large" />
           </View>
@@ -149,6 +241,29 @@ export const CommunityScreen = ({ navigation }: any) => {
 }
 
 const styles = StyleSheet.create({
+  viewToggle: { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md },
+  viewToggleBtn: { flex: 1, paddingVertical: 10, borderRadius: Radius.md, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' },
+  viewToggleBtnActive: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
+  viewToggleText: { fontSize: 12, color: Colors.textSecondary, fontFamily: Fonts.dmSansBold },
+  viewToggleTextActive: { color: Colors.primary },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface,
+    borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: Spacing.md, marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
+    height: 48, gap: Spacing.sm,
+  },
+  searchIcon: { fontSize: 16 },
+  searchInput: { flex: 1, color: Colors.textPrimary, fontFamily: Fonts.dmSansRegular, fontSize: 14 },
+  companyCard: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border,
+    padding: Spacing.md, marginBottom: Spacing.md,
+  },
+  companyAvatar: { width: 44, height: 44, borderRadius: Radius.md, backgroundColor: Colors.primaryLight, alignItems: 'center', justifyContent: 'center' },
+  companyAvatarText: { fontSize: 18, fontFamily: Fonts.soraBold, color: Colors.primary },
+  companyName: { fontSize: 15, color: Colors.textPrimary, fontFamily: Fonts.soraSemiBold },
+  companyMeta: { fontSize: 12, color: Colors.textSecondary, fontFamily: Fonts.dmSansRegular, marginTop: 2 },
+  companyArrow: { fontSize: 22, color: Colors.textMuted },
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1, backgroundColor: Colors.background },
   header: {

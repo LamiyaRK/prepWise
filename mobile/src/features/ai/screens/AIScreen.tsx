@@ -12,15 +12,13 @@ import {
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Audio } from 'expo-av'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 import { Colors, Fonts, Spacing, Radius } from '../../../constants/theme'
 import {
-  generateInterviewQuestions,
-  transcribeAndEvaluate,
-  evaluateAnswer,
+  aiToolsService,
   GeminiQuestion,
   SpeechEvaluation,
-} from '../../../services/gemini.service'
+} from '../../../services/aiTools.service'
 import {
   saveQuestion,
   unsaveQuestion,
@@ -102,14 +100,12 @@ const GenerateTab = ({ navigation }: { navigation: any }) => {
   const generate = async () => {
     setGenerating(true)
     try {
-      const qs = await generateInterviewQuestions(role, category, count)
-      setQuestions(qs.map(q => ({ ...q, saved: savedIds.has(q.question) })))
+      const res = await aiToolsService.generateQuestions(role, category, count)
+      setQuestions(res.data.map(q => ({ ...q, saved: savedIds.has(q.question) })))
     } catch (err: any) {
       Alert.alert(
         'Generation Failed',
-        err?.message?.includes('API_KEY')
-          ? 'Check your Gemini API key in .env'
-          : 'Could not reach Gemini. Check your internet connection.',
+        err?.response?.data?.error || 'Could not reach the server. Check your internet connection.',
       )
     } finally {
       setGenerating(false)
@@ -119,10 +115,10 @@ const GenerateTab = ({ navigation }: { navigation: any }) => {
   const generateMore = async () => {
     setLoadingMore(true)
     try {
-      const more = await generateInterviewQuestions(role, category, count)
+      const res = await aiToolsService.generateQuestions(role, category, count)
       setQuestions(prev => [
         ...prev,
-        ...more.map(q => ({ ...q, saved: savedIds.has(q.question) })),
+        ...res.data.map(q => ({ ...q, saved: savedIds.has(q.question) })),
       ])
     } catch {
       Alert.alert('Error', 'Failed to generate more questions.')
@@ -137,7 +133,7 @@ const GenerateTab = ({ navigation }: { navigation: any }) => {
       // Find and remove
       const all = await getSavedQuestions()
       const match = all.find((s: SavedQuestion) => s.question === q.question)
-      if (match) await unsaveQuestion(match.id)
+      if (match) await unsaveQuestion(match.question)
       setSavedIds(prev => {
         const next = new Set(prev)
         next.delete(q.question)
@@ -377,20 +373,18 @@ const VoiceTab = () => {
         encoding: FileSystem.EncodingType.Base64,
       })
 
-      // Send to Gemini for transcription + evaluation
-      const evalResult = await transcribeAndEvaluate(
+      // Send to backend for transcription + evaluation (Gemini call happens server-side)
+      const res = await aiToolsService.evaluateVoice(
         PRACTICE_QUESTIONS[qIndex],
         base64Audio,
         'm4a', // expo records in m4a/aac format
       )
 
-      setResult(evalResult)
+      setResult(res.data)
     } catch (err: any) {
       Alert.alert(
         'Evaluation Failed',
-        err?.message?.includes('audio')
-          ? 'Gemini could not process the audio. Try text mode for now.'
-          : 'Could not evaluate your answer. Please try again.',
+        `DEBUG: ${err?.response?.data?.error || err?.message || 'Unknown error'}`,
         [{ text: 'OK' }],
       )
     } finally {
@@ -405,8 +399,8 @@ const VoiceTab = () => {
     }
     setEvaluating(true)
     try {
-      const evalResult = await evaluateAnswer(PRACTICE_QUESTIONS[qIndex], typedAnswer)
-      setResult(evalResult)
+      const res = await aiToolsService.evaluateAnswer(PRACTICE_QUESTIONS[qIndex], typedAnswer)
+      setResult(res.data)
     } catch {
       Alert.alert('Error', 'Evaluation failed. Check your internet connection.')
     } finally {

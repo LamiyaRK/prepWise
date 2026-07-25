@@ -4,7 +4,7 @@ import {
   SafeAreaView, Alert, BackHandler,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { mockTestsService, MockTest } from '../../../services/mockTests.service'
+import { mockTestsService, MockTest, SubmitResult } from '../../../services/mockTests.service'
 import { Colors, Fonts, Radius, Spacing } from '../../../constants/theme'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -54,7 +54,8 @@ export const TakeTestScreen = ({ route, navigation }: any) => {
   const [answers,     setAnswers]      = useState<string[]>(Array(test.questions.length).fill(''))
   const [timeLeft,    setTimeLeft]    = useState(test.duration * 60)
   const [submitting,  setSubmitting]  = useState(false)
-  const [result,      setResult]      = useState<{ score: number; total: number; percentage: number } | null>(null)
+  const [result,      setResult]      = useState<SubmitResult | null>(null)
+  const [submitError, setSubmitError] = useState(false)
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -135,17 +136,21 @@ export const TakeTestScreen = ({ route, navigation }: any) => {
       }
     }
     setSubmitting(true)
+    setSubmitError(false)
     try {
+      // Scoring and correct answers live server-side only — the client
+      // never has the answer key before this point, so there is no local
+      // fallback to compute a score from.
       const res = await mockTestsService.submit(test.id, answers)
       setResult(res.data)
       setPhase('result')
     } catch {
-      // Fallback: score locally
-      let score = 0
-      test.questions.forEach((q, i) => { if (answers[i] === q.answer) score++ })
-      const total = test.questions.length
-      setResult({ score, total, percentage: Math.round((score / total) * 100) })
-      setPhase('result')
+      setSubmitError(true)
+      Alert.alert(
+        'Submission Failed',
+        'We could not reach the server to grade your test. Check your connection and try again — your answers are still saved.',
+        [{ text: 'Retry', onPress: () => submitAnswers(auto) }],
+      )
     } finally {
       setSubmitting(false)
     }
@@ -344,25 +349,25 @@ export const TakeTestScreen = ({ route, navigation }: any) => {
             ))}
           </View>
 
-          {/* Review answers */}
+          {/* Review answers — correct answers only exist here, in the
+              server's post-submission response */}
           <Text style={styles.reviewTitle}>Answer Review</Text>
-          {test.questions.map((q, i) => {
-            const userAns   = answers[i]
-            const isCorrect = userAns === q.answer
-            return (
-              <View key={q.id} style={[styles.reviewCard, isCorrect ? styles.reviewCorrect : styles.reviewWrong]}>
-                <View style={styles.reviewHeader}>
-                  <Text style={styles.reviewQNum}>Q{i + 1}</Text>
-                  <Text style={styles.reviewIcon}>{isCorrect ? '✅' : '❌'}</Text>
-                </View>
-                <Text style={styles.reviewQuestion}>{q.question}</Text>
-                {!isCorrect && userAns && (
-                  <Text style={[styles.reviewAnswer, { color: Colors.accent }]}>Your answer: {userAns}</Text>
-                )}
-                <Text style={[styles.reviewAnswer, { color: Colors.success }]}>Correct: {q.answer}</Text>
+          {result.review.map((item, i) => (
+            <View
+              key={item.questionId}
+              style={[styles.reviewCard, item.isCorrect ? styles.reviewCorrect : styles.reviewWrong]}
+            >
+              <View style={styles.reviewHeader}>
+                <Text style={styles.reviewQNum}>Q{i + 1}</Text>
+                <Text style={styles.reviewIcon}>{item.isCorrect ? '✅' : '❌'}</Text>
               </View>
-            )
-          })}
+              <Text style={styles.reviewQuestion}>{item.question}</Text>
+              {!item.isCorrect && item.userAnswer && (
+                <Text style={[styles.reviewAnswer, { color: Colors.accent }]}>Your answer: {item.userAnswer}</Text>
+              )}
+              <Text style={[styles.reviewAnswer, { color: Colors.success }]}>Correct: {item.correctAnswer}</Text>
+            </View>
+          ))}
 
           {/* Actions */}
           <View style={styles.resultActions}>

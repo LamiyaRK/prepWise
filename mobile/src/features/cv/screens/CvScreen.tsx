@@ -4,10 +4,10 @@ import {
   SafeAreaView, ActivityIndicator, Alert, Modal,
 } from 'react-native'
 import * as DocumentPicker from 'expo-document-picker'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Colors, Fonts, Radius, Spacing } from '../../../constants/theme'
-import { analyzeCV, CVFeedback } from '../../../services/gemini.service'
+import { aiToolsService, CVFeedback } from '../../../services/aiTools.service'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,9 +29,11 @@ const formatSize = (bytes: number) => {
 /**
  * Attempts to extract readable text from the file.
  * - For plain text / simple files: reads directly.
- * - For PDF/Word: reads as base64 and sends to Gemini with the raw bytes —
- *   Gemini can parse PDF content natively.
- * Returns { text, base64, mimeType } so we can send whichever Gemini supports.
+ * - For PDF/Word: reads as base64 and sends to the backend, which parses
+ *   the raw PDF/Word document server-side (pdf-parse / mammoth) if local
+ *   text extraction doesn't yield enough readable content.
+ * Returns { text, base64, mimeType } so the caller can send whichever the
+ * backend needs.
  */
 const extractFileContent = async (
   file: CVFile,
@@ -132,29 +134,24 @@ export const CvScreen = ({ navigation }: any) => {
     try {
       const { text, base64, mimeType } = await extractFileContent(cvFile)
 
-      setStatusMsg('Sending to Gemini AI…')
+      setStatusMsg('Analyzing…')
 
       let result: CVFeedback
 
       if (text.trim().length > 100) {
-        // We have readable text — send as text prompt (most reliable)
-        result = await analyzeCV(text)
+        // We have readable text — send as text (most reliable)
+        result = (await aiToolsService.analyzeCV(text)).data
       } else {
-        // Send as base64 document so Gemini reads the PDF/Word natively
-        result = await analyzeCVFromFile(base64, mimeType, cvFile.name)
+        // Send the raw document so the server can read the PDF/Word natively
+        result = (await aiToolsService.analyzeCVFile(base64, mimeType, cvFile.name)).data
       }
 
       setFeedback(result)
       setShowModal(true)
     } catch (err: any) {
-      const msg = err?.message ?? ''
       Alert.alert(
         'Analysis Failed',
-        msg.includes('API_KEY') || msg.includes('403')
-          ? 'Invalid Gemini API key. Check gemini.service.ts.'
-          : msg.includes('400')
-            ? 'Gemini could not read this file format. Try saving your CV as a .txt or copy-paste the text.'
-            : 'Could not analyze CV. Check your internet connection and try again.',
+        err?.response?.data?.error || 'Could not analyze CV. Check your internet connection and try again.',
       )
     } finally {
       setAnalyzing(false)
@@ -265,29 +262,22 @@ export const CvScreen = ({ navigation }: any) => {
           </View>
         ))}
 
-        {/* Resume templates */}
-        <Text style={styles.sectionTitle}>📋 Resume Templates</Text>
-        <View style={styles.templatesGrid}>
-          {['Modern', 'Classic', 'Tech', 'Minimal'].map(name => (
-            <TouchableOpacity
-              key={name}
-              style={styles.templateCard}
-              activeOpacity={0.75}
-              onPress={() =>
-                Alert.alert('Coming Soon', `The ${name} template will be available soon!`)
-              }
-            >
-              <LinearGradient
-                colors={[Colors.primary + '22', Colors.secondary + '11']}
-                style={styles.templatePreview}
-              >
-                <Text style={styles.templateIcon}>📄</Text>
-              </LinearGradient>
-              <Text style={styles.templateName}>{name}</Text>
-              <Text style={styles.templateBtn}>Use →</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* Resume builder — points to the real, working builder */}
+        <Text style={styles.sectionTitle}>📋 Build a Resume</Text>
+        <TouchableOpacity
+          style={styles.templateCard}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('ResumeList')}
+        >
+          <LinearGradient
+            colors={[Colors.primary + '33', Colors.secondary + '22']}
+            style={styles.templatePreview}
+          >
+            <Text style={styles.templateIcon}>🧾</Text>
+          </LinearGradient>
+          <Text style={styles.templateName}>Resume Builder</Text>
+          <Text style={styles.templateBtn}>Build & Export PDF →</Text>
+        </TouchableOpacity>
 
       </ScrollView>
 
@@ -359,71 +349,6 @@ export const CvScreen = ({ navigation }: any) => {
       </Modal>
     </SafeAreaView>
   )
-}
-
-// ─── analyzeCVFromFile — sends base64 doc directly to Gemini ─────────────────
-// Defined outside component to keep it clean.
-// Gemini 2.0 Flash supports inline PDF documents.
-
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE' // same key as gemini.service.ts
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
-
-const analyzeCVFromFile = async (
-  base64: string,
-  mimeType: string,
-  fileName: string,
-): Promise<CVFeedback> => {
-  const body = {
-    contents: [
-      {
-        parts: [
-          {
-            inline_data: { mime_type: mimeType, data: base64 },
-          },
-          {
-            text: `
-You are an expert resume reviewer for tech industry jobs. Analyze the CV/resume document above.
-File name: ${fileName}
-
-Return ONLY a valid JSON object with no explanation, no markdown, no code blocks:
-{
-  "score": <integer 0-100>,
-  "summary": "<2-3 sentence overall assessment>",
-  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
-  "improvements": ["<improvement 1>", "<improvement 2>", "<improvement 3>", "<improvement 4>"],
-  "keywords": ["<keyword 1>", "<keyword 2>", "<keyword 3>", "<keyword 4>", "<keyword 5>"]
-}
-`.trim(),
-          },
-        ],
-      },
-    ],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 1024 },
-  }
-
-  const response = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) throw new Error(`Gemini error ${response.status}`)
-
-  const data = await response.json()
-  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-  const cleaned = raw.replace(/```json[\s\S]*?```/g, (m: string) =>
-    m.replace(/```json\n?/, '').replace(/```$/, ''),
-  ).replace(/```[\s\S]*?```/g, (m: string) =>
-    m.replace(/```\n?/, '').replace(/```$/, ''),
-  ).trim()
-
-  try {
-    return JSON.parse(cleaned)
-  } catch {
-    const match = cleaned.match(/\{[\s\S]+\}/)
-    if (match) return JSON.parse(match[0])
-    throw new Error('Could not parse CV feedback')
-  }
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────

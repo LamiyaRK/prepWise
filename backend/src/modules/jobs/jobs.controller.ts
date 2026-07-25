@@ -1,10 +1,19 @@
 import { Request, Response } from 'express'
 import { AuthRequest } from '../../middleware/auth.middleware'
-import { getJobs, getJobById, createJob, updateJob, deleteJob } from './jobs.service'
+import { getJobs, getMyJobs, getJobById, createJob, updateJob, deleteJob } from './jobs.service'
 
 export const listJobs = async (req: Request, res: Response) => {
   try {
     const jobs = await getJobs(req.query)
+    res.json(jobs)
+  } catch (err: any) {
+    res.status(400).json({ error: err.message })
+  }
+}
+
+export const listMyJobs = async (req: AuthRequest, res: Response) => {
+  try {
+    const jobs = await getMyJobs(req.userId!)
     res.json(jobs)
   } catch (err: any) {
     res.status(400).json({ error: err.message })

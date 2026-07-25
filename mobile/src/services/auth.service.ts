@@ -1,5 +1,7 @@
 import api from './api'
 
+export type UserRole = 'USER' | 'ADMIN'
+
 export interface RegisterPayload {
   name: string
   email: string
@@ -18,6 +20,7 @@ export interface AuthResponse {
     id: string
     name: string
     email: string
+    role: UserRole
   }
 }
 

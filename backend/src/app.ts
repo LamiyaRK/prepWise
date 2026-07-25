@@ -28,8 +28,13 @@ for (const key of REQUIRED_ENV) {
 
 const app = express()
 
+const corsOrigin = process.env.CORS_ORIGIN?.trim()
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : '*'
+console.log('CORS origin:', corsOrigin)
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') ?? '*',
+  origin: corsOrigin,
 }))
 app.use(express.json({ limit: '25mb' }))
 
@@ -51,7 +56,7 @@ app.use('/api/companies', companyInsightsRouter)
 app.use('/api/resumes', resumeRouter)
 app.use('/api/streak', streakRouter)
 
-const PORT = process.env.PORT || 8080
+const PORT = process.env.PORT || 5000
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)

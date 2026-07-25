@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import * as SecureStore from 'expo-secure-store'
+import { storage } from '../services/storage'
 import api from '../services/api'
 import { UserRole } from '../services/auth.service'
 
@@ -27,8 +27,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
 
   loadToken: async () => {
-    const token = await SecureStore.getItemAsync('token')
-    const userStr = await SecureStore.getItemAsync('user')
+    const token = await storage.getItem('token')
+    const userStr = await storage.getItem('user')
     if (token && userStr) {
       set({ token, user: JSON.parse(userStr) })
     }
@@ -38,8 +38,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
     try {
       const res = await api.post('/auth/login', { email, password })
-      await SecureStore.setItemAsync('token', res.data.token)
-      await SecureStore.setItemAsync('user', JSON.stringify(res.data.user))
+      await storage.setItem('token', res.data.token)
+      await storage.setItem('user', JSON.stringify(res.data.user))
       set({ token: res.data.token, user: res.data.user })
     } finally {
       set({ isLoading: false })
@@ -50,8 +50,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
     try {
       const res = await api.post('/auth/register', { name, email, password, university })
-      await SecureStore.setItemAsync('token', res.data.token)
-      await SecureStore.setItemAsync('user', JSON.stringify(res.data.user))
+      await storage.setItem('token', res.data.token)
+      await storage.setItem('user', JSON.stringify(res.data.user))
       set({ token: res.data.token, user: res.data.user })
     } finally {
       set({ isLoading: false })
@@ -59,8 +59,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
-    await SecureStore.deleteItemAsync('token')
-    await SecureStore.deleteItemAsync('user')
+    await storage.deleteItem('token')
+    await storage.deleteItem('user')
     set({ user: null, token: null })
   },
 

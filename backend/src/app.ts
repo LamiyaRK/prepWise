@@ -51,7 +51,7 @@ app.use('/api/companies', companyInsightsRouter)
 app.use('/api/resumes', resumeRouter)
 app.use('/api/streak', streakRouter)
 
-const PORT = process.env.PORT || 5000
+const PORT = process.env.PORT || 8080
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)

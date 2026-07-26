@@ -58,8 +58,14 @@ app.use('/api/streak', streakRouter)
 
 const PORT = process.env.PORT ||8080
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
+// Vercel (and other serverless platforms) import this file and call the
+// exported app directly per-request — they never run this listener, and
+// calling it there is unnecessary. Only bind a real port for traditional
+// hosting (Back4App, local dev, etc.).
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`)
+  })
+}
 
 export default app

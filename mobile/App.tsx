@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { View, ActivityIndicator, Platform } from 'react-native'
+import { View, ActivityIndicator, Platform, Text, TextInput } from 'react-native'
 import { NavigationContainer } from '@react-navigation/native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useAuthStore } from './src/store/authStore'
@@ -22,6 +22,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   `
   document.head.appendChild(style)
 }
+
 
 export default function App() {
   const { loadToken, token } = useAuthStore()

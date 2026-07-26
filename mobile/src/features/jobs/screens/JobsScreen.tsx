@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   clearBtn: { color: Colors.textMuted, fontSize: 14, padding: 4 },
 
   // Chips
-  chipRow: { maxHeight: 44, marginBottom: Spacing.sm },
+  chipRow: { minHeight:44,maxHeight: 44, marginBottom: Spacing.sm },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,

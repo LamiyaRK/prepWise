@@ -68,7 +68,9 @@ export const LoginScreen = ({ navigation }: any) => {
           >
             <Text style={styles.logoIcon}>⚡</Text>
           </LinearGradient>
-          <Text style={styles.appName}>PrepWise</Text>
+          <TouchableOpacity onLongPress={() => navigation.navigate('ServerSettings')} delayLongPress={1500}>
+            <Text style={styles.appName}>PrepWise</Text>
+          </TouchableOpacity>
           <Text style={styles.tagline}>Your career intelligence platform</Text>
         </View>
 

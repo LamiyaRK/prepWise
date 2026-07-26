@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   filterList: {
-    maxHeight: 44,
+    minHeight:44,maxHeight: 44,
     marginBottom: Spacing.md,
   },
   filterChip: {

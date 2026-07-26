@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary,
   },
   bookmarkToggleText: { fontSize: 12, color: Colors.textPrimary, fontFamily: Fonts.dmSansBold },
-  filterRow: { maxHeight: 44, marginBottom: Spacing.sm },
+  filterRow: { minHeight:44,maxHeight: 44, marginBottom: Spacing.sm },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,

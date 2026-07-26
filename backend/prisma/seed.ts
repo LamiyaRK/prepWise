@@ -183,6 +183,35 @@ async function main() {
     console.log(`Community posts already exist (${postCount}) — skipped`)
   }
 
+  // ── More admin queue volume ──────────────────────────────────────────
+  // The blocks above only run once (gated on jobCount/postCount === 0), so
+  // if you already ran this seed, they won't add more. These are gated
+  // per-item by title instead, so they're safe to add on a second run too.
+  const extraPendingJobs = [
+    { title: 'Mobile App Developer', company: 'Bikroy.com', location: 'Dhaka, Bangladesh', category: 'Engineering', type: 'FULL_TIME' as const, description: 'Build and maintain our React Native classifieds app.', postedById: sarah.id },
+    { title: 'Customer Support Specialist', company: 'ShopUp', location: 'Dhaka, Bangladesh', category: 'Operations', type: 'FULL_TIME' as const, description: 'Handle merchant and buyer support tickets across chat and phone.', postedById: rafiq.id },
+    { title: 'UI/UX Designer', company: 'Sheba.xyz', location: 'Dhaka, Bangladesh', category: 'Design', type: 'FULL_TIME' as const, description: 'Own the design system for our home-services marketplace app.', postedById: nabila.id },
+  ]
+  for (const job of extraPendingJobs) {
+    const exists = await prisma.job.findFirst({ where: { title: job.title, company: job.company } })
+    if (!exists) await prisma.job.create({ data: { ...job, verified: false } })
+  }
+
+  const extraReportablePosts = [
+    { userId: sarah.id, company: 'TotallyLegitCo', role: 'Remote Assistant', content: 'DM me for a guaranteed high-paying remote job, just need your bank details to "verify" your account first!', tags: [] as string[], reason: 'Looks like a scam/phishing attempt.', reportedBy: rafiq.id },
+    { userId: nabila.id, company: 'N/A', role: 'N/A', content: 'This platform is trash and everyone on it is an idiot, waste of time posting here.', tags: [] as string[], reason: 'Harassment / not constructive.', reportedBy: sarah.id },
+  ]
+  for (const p of extraReportablePosts) {
+    const exists = await prisma.communityPost.findFirst({ where: { userId: p.userId, content: p.content } })
+    if (!exists) {
+      const post = await prisma.communityPost.create({
+        data: { userId: p.userId, company: p.company, role: p.role, content: p.content, tags: p.tags, likes: [] },
+      })
+      await prisma.postReport.create({ data: { postId: post.id, userId: p.reportedBy, reason: p.reason } })
+    }
+  }
+  console.log(`Ensured ${extraPendingJobs.length} extra pending jobs + ${extraReportablePosts.length} extra reported posts exist`)
+
   // ── Tracker entries + a small streak for the primary demo account ──────
   const trackerCount = await prisma.jobTracker.count({ where: { userId: sarah.id } })
   if (trackerCount === 0) {

@@ -5,11 +5,11 @@ import {
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import {
-  adminService, PendingJob, ReportedPost, PlatformStats,
+  adminService, PendingJob, ReportedPost, PlatformStats, AdminUser,
 } from '../../../services/admin.service'
 import { Colors, Fonts, Radius, Spacing } from '../../../constants/theme'
 
-type Tab = 'jobs' | 'reports' | 'stats'
+type Tab = 'jobs' | 'reports' | 'users' | 'stats'
 
 // ── Stat tile ────────────────────────────────────────────────────────────────
 
@@ -27,17 +27,20 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
 
   const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([])
   const [reportedPosts, setReportedPosts] = useState<ReportedPost[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
   const [stats, setStats] = useState<PlatformStats | null>(null)
 
   const loadAll = useCallback(async () => {
     try {
-      const [jobsRes, postsRes, statsRes] = await Promise.all([
+      const [jobsRes, postsRes, usersRes, statsRes] = await Promise.all([
         adminService.getPendingJobs(),
         adminService.getReportedPosts(),
+        adminService.getUsers(),
         adminService.getStats(),
       ])
       setPendingJobs(jobsRes.data)
       setReportedPosts(postsRes.data)
+      setUsers(usersRes.data)
       setStats(statsRes.data)
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.error || 'Failed to load admin data')
@@ -105,6 +108,30 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
     }
   }
 
+  // ── User role actions ──────────────────────────────────────────────────
+
+  const handleToggleRole = (user: AdminUser) => {
+    const nextRole = user.role === 'ADMIN' ? 'USER' : 'ADMIN'
+    Alert.alert(
+      nextRole === 'ADMIN' ? 'Promote to Admin' : 'Remove Admin Access',
+      `${nextRole === 'ADMIN' ? 'Give' : 'Revoke'} admin access ${nextRole === 'ADMIN' ? 'to' : 'from'} ${user.name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: nextRole === 'ADMIN' ? 'Promote' : 'Demote', style: nextRole === 'ADMIN' ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              const res = await adminService.setUserRole(user.id, nextRole)
+              setUsers(prev => prev.map(u => (u.id === user.id ? { ...u, role: res.data.role } : u)))
+            } catch (err: any) {
+              Alert.alert('Error', err?.response?.data?.error || 'Could not update user role')
+            }
+          },
+        },
+      ]
+    )
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -118,6 +145,7 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
         {([
           { key: 'jobs', label: `📋 Jobs${pendingJobs.length ? ` (${pendingJobs.length})` : ''}` },
           { key: 'reports', label: `🚩 Reports${reportedPosts.length ? ` (${reportedPosts.length})` : ''}` },
+          { key: 'users', label: `👥 Users${users.length ? ` (${users.length})` : ''}` },
           { key: 'stats', label: '📊 Stats' },
         ] as const).map(t => (
           <TouchableOpacity
@@ -194,6 +222,46 @@ export const AdminDashboardScreen = ({ navigation }: any) => {
             )}
           />
         )
+      ) : tab === 'users' ? (
+        users.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={styles.emptyIcon}>👥</Text>
+            <Text style={styles.emptyText}>No users yet</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={users}
+            keyExtractor={i => i.id}
+            contentContainerStyle={styles.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardTitle}>{item.name}</Text>
+                    <Text style={styles.cardSub}>{item.email}</Text>
+                    {!!item.university && <Text style={styles.cardMeta}>{item.university}</Text>}
+                  </View>
+                  <View style={[styles.roleBadge, item.role === 'ADMIN' && styles.roleBadgeAdmin]}>
+                    <Text style={[styles.roleBadgeText, item.role === 'ADMIN' && styles.roleBadgeTextAdmin]}>
+                      {item.role === 'ADMIN' ? '🛡️ Admin' : 'User'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, item.role === 'ADMIN' ? styles.rejectBtn : styles.approveBtn]}
+                    onPress={() => handleToggleRole(item)}
+                  >
+                    <Text style={item.role === 'ADMIN' ? styles.rejectText : styles.approveText}>
+                      {item.role === 'ADMIN' ? 'Remove Admin' : 'Make Admin'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          />
+        )
       ) : (
         stats && (
           <View style={styles.statsGrid}>
@@ -234,6 +302,10 @@ const styles = StyleSheet.create({
   cardDesc: { fontSize: 12, color: Colors.textPrimary, fontFamily: Fonts.dmSansRegular, marginTop: 8, lineHeight: 18 },
   reportCount: { fontSize: 12, color: Colors.accent, fontFamily: Fonts.dmSansBold, marginTop: 8 },
   reportReason: { fontSize: 11, color: Colors.textMuted, fontFamily: Fonts.dmSansRegular, marginTop: 2 },
+  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.sm, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  roleBadgeAdmin: { backgroundColor: Colors.primaryLight, borderColor: Colors.primary },
+  roleBadgeText: { fontSize: 11, color: Colors.textSecondary, fontFamily: Fonts.dmSansBold },
+  roleBadgeTextAdmin: { color: Colors.primary },
   actionRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md },
   actionBtn: { flex: 1, paddingVertical: 10, borderRadius: Radius.md, alignItems: 'center', borderWidth: 1 },
   approveBtn: { backgroundColor: Colors.successLight, borderColor: Colors.success },

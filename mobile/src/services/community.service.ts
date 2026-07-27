@@ -45,6 +45,9 @@ export const communityService = {
   comment: (id: string, content: string) =>
     api.post<Comment>(`/community/${id}/comment`, { content }),
 
+  report: (id: string, reason?: string) =>
+    api.post<{ reported: boolean }>(`/community/${id}/report`, { reason }),
+
   remove: (id: string) =>
     api.delete(`/community/${id}`),
 }

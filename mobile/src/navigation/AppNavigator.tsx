@@ -18,6 +18,7 @@ import { AIScreen }          from '../features/ai/screens/AIScreen'
 import { AIInterviewScreen } from '../features/ai-interview/screens/AIInterviewScreen'
 import { AdminDashboardScreen } from '../features/admin/screens/AdminDashboardScreen'
 import { CompanyDetailScreen } from '../features/community/screens/CompanyDetailScreen'
+import { PostDetailScreen } from '../features/community/screens/PostDetailScreen'
 import { ResumeListScreen } from '../features/resume-builder/screens/ResumeListScreen'
 import { ResumeBuilderScreen } from '../features/resume-builder/screens/ResumeBuilderScreen'
 import { CvScreen }          from '../features/cv/screens/CvScreen'
@@ -82,6 +83,8 @@ export const AppNavigator = () => (
 
     {/* Community — company-aggregated interview insights */}
     <Stack.Screen name="CompanyDetail" component={CompanyDetailScreen} />
+    {/* Community — single post, comment thread, report action */}
+    <Stack.Screen name="PostDetail" component={PostDetailScreen} />
 
     {/* Resume builder */}
     <Stack.Screen name="ResumeList" component={ResumeListScreen} />

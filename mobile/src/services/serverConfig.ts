@@ -5,7 +5,7 @@ const STORAGE_KEY = 'prepwise:server_url'
 // Fallback used only if nothing has been saved yet — update this to
 // whatever your current default is, but once you set one in-app, this
 // default is never used again on that device.
-export const DEFAULT_SERVER_URL = 'https://prepwisebackend-tn45xj94.b4a.run/api'
+export const DEFAULT_SERVER_URL = 'https://prep-wise-omega-lime.vercel.app/api'
 
 export const getServerUrl = async (): Promise<string> => {
   try {
